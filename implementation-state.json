@@ -1,0 +1,7 @@
+{
+  "guide": "docs/plans/EXAMPLE_IMPLEMENTATION_GUIDE.md",
+  "phase": "1",
+  "task": "1.2",
+  "intent_summary": "Introduce LLM compression; never pass raw tool output to LLMs except the compressor.",
+  "advance_after_complete": true
+}
