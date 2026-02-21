@@ -48,6 +48,5 @@ You implement a single task from an implementation guide. How to code is defined
 
 ## 4. Model preference (workflow reminder)
 
-**Automatic per-agent model is not supported** in Cursor: the model is chosen in the UI (dropdown) for the conversation, not in the agent file.
 
 Subagents are independent; the main agent orchestrates. When you hand off, main agent decides whether to call reviewer, then fixer or implementer with **next** based on the reviewer’s report.
