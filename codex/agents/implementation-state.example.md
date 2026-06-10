@@ -1,6 +1,12 @@
+---
+name: implementation-state.example
+model: inherit
+readonly: true
+---
+
 # implementation-state.example.md
 
-Templates for `.codex/agents/implementation-state.md` frontmatter. Copy one YAML block into that file between `---` delimiters and adjust `phase` / `task` as you progress. Use `advance_after_complete: true` while stepping a guide; set `false` when recording final closure.
+Templates for `.cursor/agents/implementation-state.md` frontmatter. Copy one YAML block into that file between `---` delimiters and adjust `phase` / `task` as you progress. Use `advance_after_complete: true` while stepping a guide; set `false` when recording final closure.
 
 ## Example A — Task Runtime Retirement MVP (reference)
 
