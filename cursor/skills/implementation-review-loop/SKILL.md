@@ -36,7 +36,6 @@ Use when feature implementation is in progress or has just completed one phase/t
 
 Trigger examples:
 - "review current task"
-- "review this implementation phase"
 - "run task review loop"
 - Command: `review-current-task`
 
@@ -45,7 +44,22 @@ Scope:
 - If a guide defines phase-level acceptance, include that phase only.
 - Continue reviewer -> fixer -> fresh reviewer until `COMPLETE`, `MAX_ROUNDS_REACHED`, or `NEEDS_CLARIFICATION`.
 
-### 2. Final Implementation Review
+### 2. Current Phase Review
+
+Use when implementation tasks for the active phase are complete and you want one review/fix loop for the whole phase before moving to the next phase.
+
+Trigger examples:
+- "review current phase"
+- "run phase review loop"
+- "phase gate review"
+- Command: `review-current-phase`
+
+Scope:
+- Review all tasks and phase acceptance criteria for the current `phase` from `.cursor/agents/implementation-state.md`.
+- Initialize review-state with `mode: current_phase`, keep `phase`, set `task: ""`, and a phase-scope summary.
+- Continue reviewer -> fixer -> fresh reviewer until `COMPLETE`, `MAX_ROUNDS_REACHED`, or `NEEDS_CLARIFICATION`.
+
+### 3. Final Implementation Review
 
 Use when implementation is complete and the user wants a standalone review-and-fix loop without advancing tasks.
 
@@ -115,7 +129,7 @@ active_findings:
 - `READY_FOR_REVIEW` -> call `@implementation-reviewer`
 - `REVIEW_BLOCKED` -> call `@implementation-fixer`
 - `FIX_APPLIED` -> invalid steady state; fixer should reset state to `READY_FOR_REVIEW` before handoff
-- `COMPLETE` -> stop; in current-task mode the main agent may continue with `@feature-implementer next`
+- `COMPLETE` -> stop; in feature implementation workflow, main agent may continue with `@feature-implementer next`
 - `NEEDS_CLARIFICATION` -> stop and ask for the missing input recorded in review-state
 - `MAX_ROUNDS_REACHED` -> stop and ask for human decision; this is valid only at the fixed hard cap of 20 rounds
 

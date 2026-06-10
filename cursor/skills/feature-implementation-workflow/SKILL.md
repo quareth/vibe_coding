@@ -9,8 +9,8 @@ Use this skill to run the current DrowAI implementation automation flow.
 
 This skill preserves the existing working behavior:
 - `@feature-implementer` implements exactly one guide task.
-- `implementation-review-loop` reviews and fixes that task through the state ledger.
-- The main agent advances to the next task only after review-state reaches `COMPLETE`.
+- `implementation-review-loop` performs phase-gated review/fix through the state ledger.
+- The main agent advances tasks continuously within a phase, then gates phase transition on review-state `COMPLETE`.
 - The loop continues until the guide is complete, `MAX_ROUNDS_REACHED`, `NEEDS_CLARIFICATION`, or the user stops.
 
 ## Durable Files
@@ -32,15 +32,18 @@ This skill preserves the existing working behavior:
 
 1. Read `.cursor/agents/implementation-state.md`.
 2. If the user named a guide/phase/task, pass that to `@feature-implementer`; otherwise call `@feature-implementer` with the current state.
-3. Let `@feature-implementer` implement one task, run verification, and initialize `.cursor/agents/implementation-review-state.md` with `mode: current_task` and `status: READY_FOR_REVIEW`.
-4. Invoke the `implementation-review-loop` skill in Current Task Review mode.
-5. Route by review-state:
-   - `COMPLETE`: if `advance_after_complete: true`, call `@feature-implementer` with `next`; otherwise stop.
-   - `REVIEW_BLOCKED`: continue the review-loop skill; do not manually paste reports.
+3. Let `@feature-implementer` implement one task and run verification.
+4. Determine whether the next task remains in the same phase:
+   - If yes, call `@feature-implementer` with `next` and continue implementation without review.
+   - If no (phase boundary reached), initialize `.cursor/agents/implementation-review-state.md` with `mode: current_phase`, current `phase`, `task: ""`, and `status: READY_FOR_REVIEW`.
+5. At phase boundary, invoke `implementation-review-loop` in Current Phase Review mode.
+6. Route by review-state:
+   - `COMPLETE`: call `@feature-implementer` with `next` to start the next phase (if any), else stop.
+   - `REVIEW_BLOCKED`: continue the phase review-loop; do not manually paste reports.
    - `READY_FOR_REVIEW`: call a fresh reviewer through the review-loop skill.
-   - `NEEDS_CLARIFICATION`: stop and ask for the missing input recorded in review-state.
+   - `NEEDS_CLARIFICATION`: stop and ask for missing input from review-state.
    - `MAX_ROUNDS_REACHED`: stop and ask for a human decision using review-state.
-6. Repeat until the guide has no next task or a hard stop status is reached.
+7. Repeat until the guide has no next task or a hard stop status is reached.
 
 ## Hard Rules
 
@@ -49,6 +52,7 @@ This skill preserves the existing working behavior:
 - Do not skip the review-loop completion gate.
 - Do not call `@feature-implementer next` after `MAX_ROUNDS_REACHED` or `NEEDS_CLARIFICATION`.
 - Keep implementation task-scoped; one feature-implementer invocation equals one guide task.
+- Phase transitions must be gated by Current Phase Review `COMPLETE`.
 - If state files conflict, resolve or ask before continuing.
 
 ## Final Response
