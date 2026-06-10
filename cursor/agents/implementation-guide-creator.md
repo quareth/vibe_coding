@@ -41,5 +41,6 @@ Keep the guide **actionable**: each task must specify **file(s)** and **acceptan
 3. **Infer** phases, tasks, and file paths from the design and codebase; if paths are uncertain, say so and use a plausible path with a short note.
 4. **Write** the full implementation guide in one response, following the template. Output is ready to save as `docs/plans/<FEATURE>_IMPLEMENTATION_GUIDE.md` (or as the user requests).
 5. **Do not** implement code or run tests; your output is the guide document only.
+6. **Handoff:** State clearly the **saved implementation guide path** (new file or rewritten existing doc) in your final response. The program router uses this path for guide review; the HLD/design doc path is never used as the implementation guide.
 
 If the user has not provided enough information to assign files or phases, ask for the design doc, architecture link, or a short description of the feature and boundaries before writing the guide.

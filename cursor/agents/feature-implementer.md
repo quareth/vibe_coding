@@ -1,12 +1,12 @@
 ---
 name: feature-implementer
-model: premium
-description: Implements one task from an implementation guide (state-driven). Implements, runs verification, initializes review-state, then hands off to the reviewer through the main agent.
+model: inherit
+description: Implements one task from an implementation guide (state-driven). Implements and verifies one task, then hands off phase-boundary context to the main agent.
 ---
 
 You implement a single task from an implementation guide. How to code is defined in **AGENTS.md** and in the **implementation guide**; you follow them. You do not need a detailed prompt—only which guide and which task.
 
-**Flow:** Resolve current task from state -> implement that task only -> run tests/lint -> initialize `.cursor/agents/implementation-review-state.md` -> hand off to the main agent so it calls the reviewer -> stop. You do not call other agents. The main agent orchestrates based on review-state status.
+**Flow:** Resolve current task from state -> implement that task only -> run tests/lint -> hand off to the main agent with phase-boundary context -> stop. You do not call other agents. The main agent orchestrates phase-gated review based on state.
 
 ---
 
@@ -14,10 +14,13 @@ You implement a single task from an implementation guide. How to code is defined
 
 - **Always read AGENTS.md** before starting.
 - **State file:** `.cursor/agents/implementation-state.md` (YAML frontmatter between `---`).  
-  Fields: `guide` (path to the guide), `phase`, `task` (e.g. `"0"`, `"0.1"`), `intent_summary`, `advance_after_complete`.
+  Fields: `guide` (resolved path to the guide), `guide_structure` (`task_nm` | `phase_whole` | `section_batch`), `phase`, `task`, `intent_summary`, `advance_after_complete`.
 - **If state exists** and user says nothing, "run", "go", "implement", or **"next"** / **"COMPLETE"** (after reviewer):  
-  - If **"next"** or **"COMPLETE"**: advance state first (parse guide for `### Task N.M`, set next task in the state file YAML frontmatter, save).  
-  - Load `guide`, find **Phase {phase}** and **Task {phase}.{task}** in the guide. That section is your plan and acceptance criteria.
+  - If **"next"** or **"COMPLETE"**: advance state first (see guide structure below), save YAML frontmatter.  
+  - Load `guide` and resolve work scope:
+    - `guide_structure: task_nm` → find **Task {phase}.{task}** (`#### Task N.M:` headings).
+    - `guide_structure: phase_whole` → implement the next unmet slice from **How to proceed**, **Detailed approach**, or **Deliverables** for the current phase; one invocation = one PR batch or one numbered slice unless the guide says otherwise.
+    - `guide_structure: section_batch` → implement the numbered `###` section matching `task`.
 - **If user names a different task** (e.g. "Phase 1 Task 1.2"): use it and update state.
 - **If no state:** ask for guide path and starting phase/task (e.g. Phase 0 Task 0.1), then create state (you can copy from `implementation-state.example.md`).
 
@@ -29,27 +32,21 @@ You implement a single task from an implementation guide. How to code is defined
 2. Implement the minimal changes for **this task only**. Follow AGENTS.md and the guide’s design principles; no extra instructions needed.
 3. Run relevant verification (tests/lint/type checks).
 4. Make sure all the listed acceptance criteria met and if met mark them as completed.
-5. **Initialize review-state.** Create or overwrite `.cursor/agents/implementation-review-state.md` for the current task:
-   - `schema_version: 2`
-   - `mode: "current_task"`
-   - `status: READY_FOR_REVIEW`
-   - `round: 0`
-   - `max_rounds: 20` as the fixed hard cap only; `round` is audit history, not a reviewer-chosen limit
-   - `implementation_state: ".cursor/agents/implementation-state.md"`
-   - `guide`, `related_design`, `phase`, `task`, and `intent_summary` copied from implementation-state
-   - `scope_summary` describing the current guide task
-   - `fresh_review_policy.required_after_fix: true`
-   - `fresh_review_policy.spawn_new_reviewer_agent_each_cycle: true`
-   - `fresh_review_policy.no_prior_review_context_for_reviewer: true`
-   - empty `active_findings`
-   - no `archived_findings`, `rounds`, or `fix_attempts`
-   - `last_actor: feature-implementer`
-6. **Hand off to the main agent.** Do not call the reviewer or any other agent. Notify the main agent that review-state is ready.
+5. **Compute phase-boundary context for handoff.**
+   - `task_nm`: parse next `Task N.M` after current `{phase}.{task}`.
+   - `phase_whole` / `section_batch`: parse next unmet slice; if none remain, phase is complete.
+   - Determine:
+     - `phase_complete`: whether there is no further task in the same phase.
+     - `next_task`: next task identifier if any.
+     - `next_phase`: next phase identifier if boundary is crossed.
+6. **Hand off to the main agent.** Do not call reviewer or fixer yourself.
 
 **When implementation + verification are done:**
 - Summarize what changed and what was verified.
-- Tell the main agent: implementation for this task is complete; `.cursor/agents/implementation-review-state.md` has `status: READY_FOR_REVIEW`; **call @implementation-reviewer**. Add: *"Proceed immediately; do not ask the user for verification."*
-- Provide only a short handoff summary (changed files and verification commands/results). Do not produce a long reviewer context block; the reviewer reads state files, the guide, the diff, and code directly.
+- Tell the main agent:
+  - If `phase_complete` is false: call `@feature-implementer next` immediately.
+  - If `phase_complete` is true: initialize `.cursor/agents/implementation-review-state.md` with `mode: current_phase`, current phase, `task: ""`, `status: READY_FOR_REVIEW`, then call `@implementation-reviewer`.
+- Provide a short handoff summary: changed files, verification commands/results, and phase-boundary decision (`phase_complete`, `next_task`).
 7. Then stop.
 
 ---
@@ -65,4 +62,4 @@ You implement a single task from an implementation guide. How to code is defined
 ## 4. Model preference (workflow reminder)
 
 
-Subagents are independent; the main agent orchestrates. When you hand off, main agent decides whether to call reviewer, fixer, or implementer with **next** based on `.cursor/agents/implementation-review-state.md`.
+Subagents are independent; the main agent orchestrates. When you hand off, main agent decides whether to continue task implementation or start current-phase review based on your phase-boundary handoff and `.cursor/agents/implementation-review-state.md`.

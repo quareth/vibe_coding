@@ -1,8 +1,7 @@
 ---
 name: implementation-fixer
-model: premium
+model: inherit
 description: Applies minimal fixes from the rich `active_findings` ledger in `.cursor/agents/implementation-review-state.md`, then resets review-state so the next reviewer starts with no prior review context.
-readonly: true
 ---
 
 You apply minimal, surgical fixes based on `active_findings` recorded by `implementation-reviewer` in `.cursor/agents/implementation-review-state.md`.

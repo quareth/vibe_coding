@@ -18,24 +18,32 @@ Review `round` is audit history only. `max_rounds` is fixed at `20` and acts onl
 1. **Start implementation**
    - User says "implement", "go", "run", or names a guide/task.
    - Call **@feature-implementer** with that request, or with nothing if state already exists.
-   - The implementer reads `.cursor/agents/implementation-state.md`, implements exactly one task, runs verification, and initializes `.cursor/agents/implementation-review-state.md` with `mode: current_task` and `status: READY_FOR_REVIEW`.
+   - The implementer reads `.cursor/agents/implementation-state.md`, implements exactly one task, and runs verification.
 
-2. **Review implementation**
+2. **Check phase boundary**
+   - If the next task is in the same phase, call **@feature-implementer** with **next** and continue implementation.
+   - If the next task moves to a new phase (or there is no next task in current phase), initialize `.cursor/agents/implementation-review-state.md` with:
+     - `mode: current_phase`
+     - current `phase`
+     - `task: ""`
+     - `status: READY_FOR_REVIEW`
+
+3. **Review phase**
    - When review-state is `READY_FOR_REVIEW`, call a fresh **@implementation-reviewer** subagent.
-   - Do not resume a previous reviewer. Do not paste a long implementer report, fixer report, old findings, or chat history. The reviewer reads state metadata, the guide, the diff, and relevant code/tests.
-   - The reviewer performs a fresh full review of the current task scope and writes detailed `active_findings` to `.cursor/agents/implementation-review-state.md`.
+   - Do not resume a previous reviewer. Do not paste long implementer/fixer reports, old findings, or chat history.
+   - Reviewer performs a fresh full review of the current phase scope and writes `active_findings`.
 
-3. **Route by review-state status**
-   - `COMPLETE` -> Call **@feature-implementer** with **next** to advance to the next task, then repeat from step 2 after implementation.
+4. **Route by review-state status**
+   - `COMPLETE` -> Call **@feature-implementer** with **next** to start the next phase task (if any), then repeat from step 1.
    - `REVIEW_BLOCKED` -> Call **@implementation-fixer**. The fixer reads `active_findings` plus implementation-state, applies only those blocker/major fixes, resets review-state to clean `READY_FOR_REVIEW`, then hands back.
    - `FIX_APPLIED` -> Treat as stale/invalid; ask fixer/main agent to reset review-state to clean `READY_FOR_REVIEW`.
    - `READY_FOR_REVIEW` -> Call **@implementation-reviewer**.
    - `NEEDS_CLARIFICATION` -> Resolve the missing input recorded in review-state, then call the appropriate agent again.
    - `MAX_ROUNDS_REACHED` -> Stop the automated loop and ask the user for a human decision using review-state as evidence.
 
-4. **After fixer responds**
+5. **After fixer responds**
    - Call **@implementation-reviewer** again.
-   - Do not copy a full fixer report. Call a fresh reviewer subagent that does not know the previous review/fix and performs a fresh full review of the scoped implementation.
+   - Do not copy a full fixer report. Call a fresh reviewer subagent that does not know the previous review/fix and performs a fresh full phase review.
 
 Continue until the guide is fully complete, `MAX_ROUNDS_REACHED` is recorded, or the user stops.
 
@@ -46,4 +54,5 @@ Continue until the guide is fully complete, `MAX_ROUNDS_REACHED` is recorded, or
 - Do not paste full reports between agents. Short handoff summaries are okay, but state files are authoritative.
 - Do not carry stale `active_findings` forward after fixes; clear them and force a fresh reviewer subagent.
 - Do not keep `archived_findings`, `rounds`, or `fix_attempts` in review-state.
+- Do not move to next phase before `mode: current_phase` review reaches `COMPLETE`.
 - If state files conflict, resolve the conflict in the state file before continuing.

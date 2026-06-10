@@ -10,16 +10,16 @@ Use this before every fresh reviewer run, including after the fixer applies chan
 
 ```yaml
 schema_version: 2
-mode: "current_task" # current_task | final_implementation
+mode: "current_task" # current_task | current_phase | final_implementation
 status: READY_FOR_REVIEW
 round: 0
 max_rounds: 20 # fixed hard cap only; round is audit history, not a reviewer-chosen limit
 implementation_state: ".cursor/agents/implementation-state.md"
 guide: "docs/path/to/implementation-guide.md"
 related_design: "docs/path/to/design.md"
-phase: "0" # required only for current_task; use "" for final_implementation
-task: "0.1" # required only for current_task; use "" for final_implementation
-scope_summary: "Current task review, or full implementation review against the guide."
+phase: "0" # required for current_task/current_phase; use "" for final_implementation
+task: "0.1" # required only for current_task; use "" for current_phase/final_implementation
+scope_summary: "Current task, current phase, or full implementation review against the guide."
 intent_summary: "Short implementation intent from implementation-state.md."
 last_actor: "feature-implementer"
 updated_at: "YYYY-MM-DDTHH:MM:SSZ"
@@ -91,6 +91,15 @@ mode: "final_implementation"
 phase: ""
 task: ""
 scope_summary: "Full implementation review against the guide."
+```
+
+For current phase review, use:
+
+```yaml
+mode: "current_phase"
+phase: "2"
+task: ""
+scope_summary: "Current phase review against all tasks and acceptance criteria in Phase 2."
 ```
 
 ## Status Values
