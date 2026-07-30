@@ -36,6 +36,11 @@ repository already has its own planning template, keep that one instead.
 Full installation is recommended. Installing everything makes every capability
 available; the selected profile controls what actually runs.
 
+Do not copy the `profiles/` folder into `.codex`, `.cursor`, or `.claude`.
+Those files are reference lists for choosing a full or smaller installation.
+Profile behavior is already included in the installed agents, skills, and state
+templates.
+
 If the destination already contains agents or skills with the same names,
 review or back them up before replacing them. After copying, open or reload the
 project and start a new AI conversation.
@@ -134,6 +139,14 @@ The exact contents of each profile are listed in:
 - `profiles/high.yaml`
 
 Profiles are cumulative: Medium includes Lite, and High includes Medium.
+The AI applications do not load these YAML files. After a full installation,
+select a profile in your request, for example:
+
+```text
+Implement [implementation-guide] with the Medium profile.
+```
+
+If you do not name a profile, new work uses Lite.
 
 ## What the AI will do
 
@@ -173,10 +186,12 @@ review findings, so it should normally remain local to the target project.
 
 Full installation is the simplest option. To install only one profile:
 
-1. Open its file under `profiles/`.
+1. Open its file under `profiles/` and use it as a checklist.
 2. Copy every listed agent for your AI tool.
 3. Copy the complete folder for every listed skill.
 4. Copy every listed state example.
+
+Do not copy the profile YAML file itself into the target application's folder.
 
 ## Included capabilities
 
