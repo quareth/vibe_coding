@@ -1,211 +1,201 @@
-# Vibe Coding
+# AI Agent and Skill Library
 
-State-driven agent templates and skills for **hands-off multi-phase programs**: numbered docs under a root → implementation guide → guide review → code implementation → final review — repeated automatically until done.
+Ready-to-use agents, skills, and delivery workflows for:
 
-## Principles
+- OpenAI Codex
+- Cursor
+- Claude Code
 
-- **State files are the contract** — durable markdown/YAML state, not chat memory.
-- **Fresh agent per step** — each creator, reviewer, fixer, and implementer is a new context.
-- **Router vs worker** — the program skill only copies state and triggers child flows; it never creates, reviews, or implements.
-- **One trigger, full program** — process every remaining phase file in one run; stop only on `program_complete` or `hard_stop`.
+Install the collection in a project, then ask your AI to create an
+implementation guide or implement an existing one. The AI can review the
+result, fix blocking findings, and resume later from saved state.
 
-## Layout
+## Install
 
-```
-.cursor/
-  agents/          # Subagent prompts + state files (*.md)
-  skills/          # Orchestration skills (*/SKILL.md)
-docs/plans/
-  PLAN_TEMPLATE.md # Implementation guide structure (feature mode)
-```
+Copy the folders for your AI tool into the project where it will work:
 
----
+| Tool | Copy from here | Copy into your project |
+| --- | --- | --- |
+| Codex | `codex/agents/` | `.codex/agents/` |
+| Codex | `codex/skills/` | `.codex/skills/` |
+| Cursor | `cursor/agents/` | `.cursor/agents/` |
+| Cursor | `cursor/skills/` | `.cursor/skills/` |
+| Cursor | `cursor/state/` | `.cursor/state/` |
+| Cursor | `cursor/commands/` | `.cursor/commands/` |
+| Claude Code | `claude/agents/` | `.claude/agents/` |
+| Claude Code | `claude/skills/` | `.claude/skills/` |
+| Claude Code | `claude/state/` | `.claude/state/` |
+| Any tool | `templates/PLAN_TEMPLATE.md` | `[template-folder]/PLAN_TEMPLATE.md` |
 
-## Main workflow: `program-execution-workflow`
+Copy whole folders, not individual `SKILL.md` files. Some skills include
+supporting files that must stay with them.
 
-**Entry point.** Invoke once; router runs all remaining phases.
+The included plan template is optional but recommended. If the target
+repository already has its own planning template, keep that one instead.
 
-### Configure (user sets only)
+Full installation is recommended. Installing everything makes every capability
+available; the selected profile controls what actually runs.
 
-```yaml
-# program-workflow-state.md
-doc_root: "docs/<program>/"
-file_glob: "phase-*.md"
-last_completed_index: -1      # 0-based; -1 = none done yet
-pipeline_stage: creating_guide
-guide_mode: refactor            # refactor | feature
-```
+If the destination already contains agents or skills with the same names,
+review or back them up before replacing them. After copying, open or reload the
+project and start a new AI conversation.
 
-No per-phase filename list. Router discovers sorted `phase-*.md` files and resumes at `last_completed_index + 1`.
+## Use
 
-### Outer loop
+Normal language is enough. You do not need to remember agent names or special
+commands.
 
-```text
-WHILE pipeline_stage != program_complete AND hard_stop is null:
-  run one phase (5 stages below)
-  advance_queue → if more files: immediately start next phase (same session)
-```
-
-### One phase (router triggers child flows)
-
-```text
-creating_guide          → guide creator agent
-reviewing_guide         → implementation-guide-review-loop
-implementing            → feature-implementation-workflow
-reviewing_implementation → implementation-review-loop (final)
-advance_queue           → last_completed_index++; next file or program_complete
-```
-
-```mermaid
-flowchart LR
-  A[creating_guide] --> B[reviewing_guide]
-  B --> C[implementing]
-  C --> D[reviewing_implementation]
-  D --> E[advance_queue]
-  E -->|more files| A
-  E -->|done| F[program_complete]
-```
-
-| Stage | Triggered | Router writes |
-|-------|-----------|---------------|
-| `creating_guide` | `refactor-guide-creator` or `implementation-guide-creator` | Creator input from **discovered phase file**; after creator, copy **output guide path** to guide-review states |
-| `reviewing_guide` | `implementation-guide-review-loop` | — |
-| `implementing` | `feature-implementation-workflow` | `implementation-state` after guide review `COMPLETE` |
-| `reviewing_implementation` | `implementation-review-loop` | Final review seed |
-| `advance_queue` | — | Bump index; clear guide fields; loop or exit |
-
-### Path model
-
-| Doc | Role |
-|-----|------|
-| Discovered `phase-*.md` at `current_index` | **Phase input** → guide creator (`refactor-guide-state.statement`) |
-| Creator output (`refactor-guide-state.guide`) | **Implementation guide** → guide review + implementation |
-| Program README under `doc_root` | Optional context — **not** the per-phase input doc |
-
-### Triggers
-
-| Command / phrase |
-|----------------|
-| `program-execution-workflow` |
-| “run program workflow” |
-| “process all remaining phases under [doc_root]” |
-
-### Stop conditions (only)
-
-| Condition | Meaning |
-|-----------|---------|
-| `pipeline_stage: program_complete` | All discovered files finished |
-| `hard_stop` | Child flow: `NEEDS_CLARIFICATION` or `MAX_ROUNDS_REACHED` |
-| `pipeline_stage: idle` | State not configured |
-
-**Not a stop:** one phase finished, child skill “final response”, or `advance_queue` with more files remaining.
-
----
-
-## Child flows (invoked by router)
-
-### `implementation-guide-review-loop`
-
-Guide document review only (not code).
+### Create an implementation guide
 
 ```text
-fresh implementation-guide-reviewer → fixer if blocked → fresh reviewer → COMPLETE
+Create an implementation guide in [folder] for [describe the change].
 ```
 
-States: `implementation-guide-state.md`, `implementation-guide-review-state.md`
+The guide creator searches the target repository for an existing planning
+template. This library includes `templates/PLAN_TEMPLATE.md` as a reusable
+default.
 
-### `feature-implementation-workflow`
+You can provide any useful reference documents:
 
 ```text
-feature-implementer (one task) → next task in phase
-  → phase boundary: implementation-reviewer (current_phase) + fixer loop
-  → until guide complete
+Create an implementation guide in [folder] for [describe the change].
+Use [requirements, architecture notes, ADRs, tickets, or other references].
 ```
 
-States: `implementation-state.md`, `implementation-review-state.md`  
-Reference: `IMPLEMENTATION_FLOW.md`
+### Implement a guide
 
-### `implementation-review-loop`
+```text
+Implement [implementation-guide].
+```
 
-| Mode | When |
-|------|------|
-| `current_phase` | Phase gate during implementation |
-| `final_implementation` | After all tasks done (program router uses this) |
+Lite is the default. Name another profile only when you want it:
 
-States: `implementation-review-state.md`
+```text
+Implement [implementation-guide] with the Medium profile.
+```
 
----
+### Resume later
 
-## Agents in the pipeline
+```text
+Continue implementation.
+```
 
-| Agent | Role |
-|-------|------|
-| `refactor-guide-creator` | Refactor implementation guide from phase input + program rules |
-| `implementation-guide-creator` | Feature implementation guide from HLD + PLAN_TEMPLATE |
-| `implementation-guide-reviewer` | Blocker-only guide review |
-| `implementation-guide-fixer` | Guide fixes from review ledger |
-| `feature-implementer` | One implementation task per run |
-| `implementation-reviewer` | Code review against guide |
-| `implementation-fixer` | Code fixes from review ledger |
+The workflow reads its saved state and continues from the correct task or
+review gate.
 
----
+## Run capabilities individually
 
-## Skills
+The complete delivery workflow is optional. Every installed capability can
+also be started directly with a normal request.
 
-| Skill | Role |
-|-------|------|
-| `program-execution-workflow` | **Router** — multi-phase outer loop |
-| `implementation-guide-review-loop` | Guide review/fix |
-| `feature-implementation-workflow` | Implement + phase gates |
-| `implementation-review-loop` | Code review/fix |
+For example:
 
-Handoff field maps: `.cursor/skills/program-execution-workflow/state-handoffs.md`  
-Router reference: `.cursor/agents/PROGRAM_EXECUTION_FLOW.md`
+```text
+Review [implementation-guide].
 
----
+Run a final implementation review against [implementation-guide].
 
-## State files
+Run a quality review for [branch or commit].
 
-### Router (minimal)
+Analyze the architecture of [component or feature].
 
-| File | You set | Router sets |
-|------|---------|-------------|
-| `program-workflow-state.md` | `doc_root`, `file_glob`, `last_completed_index`, `guide_mode`, `pipeline_stage` | `current_index`, `current_input_doc`, `current_guide`, `hard_stop` |
+Create or update architecture documentation in [folder].
 
-Example: `program-workflow-state.example.md`
+Audit the architecture documentation for drift.
 
-### Child flows (agents own detail)
+Find and remove dead code in [scope].
 
-| File | Flow |
-|------|------|
-| `refactor-guide-state.md` | Guide creator (refactor) — `guide` = output path on completion |
-| `implementation-guide-state.md` | Guide review scope |
-| `implementation-guide-review-state.md` | Guide blocker ledger |
-| `implementation-state.md` | Active guide, phase, task |
-| `implementation-review-state.md` | Code blocker ledger |
+Use Playwright to verify [user flow].
+```
 
-Examples: `*.example.md`
+Use only the capability you ask for. Starting an individual review, analysis,
+documentation, cleanup, or browser workflow does not require running the full
+delivery flow.
 
----
+## Profiles
 
-## Quick start
+An implementation guide is the only required planning artifact. The AI can
+create it from a plain request or from any useful references, such as
+requirements, architecture notes, ADRs, tickets, existing documentation, or
+conversation context.
 
-1. Number phase docs under `doc_root` (e.g. `phase-00-….md`, `phase-01-….md`, …).
-2. Copy `program-workflow-state.example.md` → `program-workflow-state.md`.
-3. Set `doc_root`, `last_completed_index`, `pipeline_stage: creating_guide`, `guide_mode`.
-4. Run **`program-execution-workflow`**.
-5. Resume after interruption: same command — router reads `pipeline_stage` and `last_completed_index`.
+| Profile | Workflow | Best for |
+| --- | --- | --- |
+| Lite | Guide → implementation → final review and fixes | Small, clear changes |
+| Medium | Guide creation and review → phase implementation and reviews → final and quality review | Most features and refactors |
+| High | Complete Medium flow with every optional specialist and skill available | Large programs, audits, documentation, cleanup, and browser-heavy work |
 
----
+New work defaults to Lite when no profile is selected.
 
-## Standalone use (without program router)
+The exact contents of each profile are listed in:
 
-| Goal | Skill |
-|------|-------|
-| Implement one guide manually | `feature-implementation-workflow` + `implementation-state.md` |
-| Review one guide doc | `implementation-guide-review-loop` |
-| Final code review only | `implementation-review-loop` (`final_implementation`) |
+- `profiles/lite.yaml`
+- `profiles/medium.yaml`
+- `profiles/high.yaml`
 
----
+Profiles are cumulative: Medium includes Lite, and High includes Medium.
 
-Open for use and customization. See each skill’s `SKILL.md` for triggers, handoffs, and hard rules.
+## What the AI will do
+
+1. Use your implementation guide or create one.
+2. Apply the planning and review gates required by the selected profile.
+3. Implement one guide task at a time and verify the work.
+4. Fix blocking findings and run a fresh review.
+5. Continue automatically while the saved state provides a clear next action.
+6. Stop when complete or when a real decision or safety limit requires you.
+
+The AI should not ask for confirmation between normal workflow steps.
+
+## Project instructions and saved state
+
+The installed agents follow the target project's own rules:
+
+- Codex and Cursor use `AGENTS.md` when present.
+- Claude Code uses `CLAUDE.md` when present.
+
+Use those files for project commands, conventions, safety rules, and testing
+requirements.
+
+Files ending in `.example.md` are clean state templates. The AI creates local
+working state from them when needed. Published examples contain no real project
+state.
+
+Live state is stored under:
+
+- `.codex/agents/` for Codex
+- `.cursor/state/` for Cursor
+- `.claude/state/` for Claude Code
+
+Live state may include local paths, branch names, commit IDs, progress, or
+review findings, so it should normally remain local to the target project.
+
+## Smaller installations
+
+Full installation is the simplest option. To install only one profile:
+
+1. Open its file under `profiles/`.
+2. Copy every listed agent for your AI tool.
+3. Copy the complete folder for every listed skill.
+4. Copy every listed state example.
+
+## Included capabilities
+
+The complete collection includes guide creation, implementation and review
+loops, architecture documentation, quality cleanup, dead-code cleanup,
+Playwright browser automation, drift auditing, and multi-phase program
+execution.
+
+Optional capabilities run only when requested or relevant.
+
+## Repository layout
+
+```text
+codex/      Codex collection
+cursor/     Cursor collection
+claude/     Claude Code collection
+profiles/   Lite, Medium, and High definitions
+templates/  Reusable implementation-guide template
+```
+
+The local `.codex/` folder in this repository is ignored by Git and is not part
+of the public collection.

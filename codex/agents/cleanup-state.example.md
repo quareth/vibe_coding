@@ -1,6 +1,6 @@
 # cleanup-state.example.md
 
-Template for `.cursor/agents/cleanup-state.md`. Copy the YAML block into that file between `---` delimiters when starting a new cleanup campaign or resetting state.
+Template for `.codex/agents/cleanup-state.md`. Copy the YAML block into that file between `---` delimiters when starting a new cleanup campaign or resetting state.
 
 ## Clean start (new campaign)
 
@@ -30,9 +30,9 @@ status: AWAITING_PR
 discovery_complete: true
 current_iteration: "2"
 awaiting_pr_iteration: "1"
-intent_summary: "Remove legacy backend modules not wired through backend/main.py."
+intent_summary: "Describe the approved dead-code cleanup campaign."
 last_actor: garbage-collector
-updated_at: "2026-05-31T12:00:00Z"
+updated_at: "YYYY-MM-DDTHH:MM:SSZ"
 campaign_stats:
   total: 3
   complete: 1
@@ -41,29 +41,28 @@ campaign_stats:
   pending: 2
 iterations:
   - id: "1"
-    slug: legacy-chat
-    title: "Legacy chat router shim"
+    slug: component-name
+    title: "Unused component"
     status: complete
     risk: low
     scope:
       files:
-        - "backend/routers/legacy_chat.py"
+        - "path/to/unused_module.py"
       symbols:
-        - "legacy_chat_router"
+        - "unused_symbol"
       docs:
-        - "docs/architecture/backend.md"
+        - "docs/path/to/canonical-document.md"
     evidence:
       entrypoint_checks:
-        - "backend/main.py — no import or mount of legacy_chat"
+        - "wired/entrypoint.py — no import or registration of unused_symbol"
       reference_grep:
-        - "rg legacy_chat — zero hits outside iteration scope"
-      why_dead: "Router was replaced by backend/routers/chat/; no wired mount remains."
+        - "rg unused_symbol — zero hits outside iteration scope"
+      why_dead: "No wired production path imports or invokes the component."
     verification:
       commands:
-        - "pytest backend/tests -k chat -q"
-        - "npm run check"
-    cleanup_notes: "Removed router, stale test module, and backend.md paragraph."
-    completed_at: "2026-05-31T11:45:00Z"
+        - "pytest tests/path/to/relevant_tests.py -q"
+    cleanup_notes: "Summarize the focused removal and any canonical documentation update."
+    completed_at: "YYYY-MM-DDTHH:MM:SSZ"
     git:
       branch: ""
       base_branch: main
@@ -73,25 +72,25 @@ iterations:
       pr_status: pending
       pr_created_at: ""
   - id: "2"
-    slug: legacy-foo-tool
-    title: "Unused agent tool module"
+    slug: legacy-parser
+    title: "Unused parser module"
     status: pending
     risk: medium
     scope:
       files:
-        - "agent/tools/legacy_foo.py"
+        - "src/parsers/legacy_parser.py"
       symbols:
-        - "legacy_foo_tool"
+        - "legacy_parser"
       docs: []
     evidence:
       entrypoint_checks:
-        - "agent/tools registry/resolver — tool id not registered"
+        - "parser registry and application bootstrap do not register the module"
       reference_grep:
-        - "rg legacy_foo — only self-references in agent/tools/legacy_foo.py"
-      why_dead: "Tool never registered in wired resolver path."
+        - "rg legacy_parser — only self-references in src/parsers/legacy_parser.py"
+      why_dead: "Module is never registered or imported by a wired runtime path."
     verification:
       commands:
-        - "pytest tests -k tool_registry -q"
+        - "pytest tests -k parser_registry -q"
     cleanup_notes: ""
     completed_at: ""
     git:
@@ -109,12 +108,12 @@ iterations:
     risk: high
     scope:
       files:
-        - "backend/services/old_loader.py"
+        - "src/services/old_loader.py"
       symbols: []
       docs: []
     evidence:
       entrypoint_checks:
-        - "importlib string reference in backend/config/feature_flags.py — needs manual trace"
+        - "dynamic import string in src/config/feature_flags.py — needs manual trace"
       reference_grep: []
       why_dead: "Likely dead but dynamic import path not fully traced."
     verification:
@@ -137,14 +136,14 @@ iterations:
 status: READY
 awaiting_pr_iteration: ""
 last_actor: garbage-collection-workflow
-updated_at: "2026-05-31T12:15:00Z"
+updated_at: "YYYY-MM-DDTHH:MM:SSZ"
 # iteration 1 git block:
-#   branch: garbage-collection-legacy-chat
-#   commit_sha: abc123...
-#   pr_number: 842
-#   pr_url: https://github.com/org/drowAI/pull/842
+#   branch: garbage-collection-<slug>
+#   commit_sha: <commit-sha>
+#   pr_number: <number>
+#   pr_url: https://github.com/<owner>/<repository>/pull/<number>
 #   pr_status: open
-#   pr_created_at: "2026-05-31T12:15:00Z"
+#   pr_created_at: "YYYY-MM-DDTHH:MM:SSZ"
 ```
 
 ## Blocked iteration
@@ -155,10 +154,10 @@ current_iteration: "2"
 # ... keep iterations list ...
 # Set blocked iteration:
 #   status: blocked
-#   cleanup_notes: "Still imported by backend/services/foo/bar.py:42 via lazy import."
+#   cleanup_notes: "Still imported by src/services/example.py:42 via lazy import."
 ```
 
-## All complete
+## All complete for the known batch
 
 ```yaml
 status: ALL_COMPLETE
@@ -172,6 +171,17 @@ campaign_stats:
   pending: 0
 ```
 
+`ALL_COMPLETE` means there are no pending iterations in the currently known batch. It does not mean the repository can never be scanned again. If the user later asks for another cleanup pass, reopen discovery without resetting history:
+
+```yaml
+status: PLANNING
+discovery_complete: false
+current_iteration: ""
+# Keep existing iterations and their git/PR metadata unchanged.
+```
+
+The next discovery pass must append only newly proven runtime-dead candidates with ids after the existing maximum id. If it proves no new candidates, set `ALL_COMPLETE` again without changing application code.
+
 ## Status values
 
 | Status | When |
@@ -181,14 +191,15 @@ campaign_stats:
 | `IN_PROGRESS` | Active iteration cleanup |
 | `AWAITING_PR` | Iteration cleanup done; main agent must commit + open PR |
 | `READY` | PR recorded; safe to spawn next iteration |
-| `ALL_COMPLETE` | No pending iterations (blocked/deferred may remain) |
+| `ALL_COMPLETE` | No pending iterations in the known batch (blocked/deferred may remain); a later explicit cleanup request may reopen discovery |
 | `BLOCKED` | Active iteration failed verification or proof gap |
 | `NEEDS_CLARIFICATION` | Missing user input |
 
 ## Rules
 
-1. One cleanup iteration per `@garbage-collector` spawn (except first run: discovery + iteration 1).
+1. One cleanup iteration per `garbage-collector` spawn (except first run or reopened discovery: discovery + one newly discovered iteration).
 2. Re-validate wired entrypoints on every iteration — do not trust stale discovery alone.
 3. Never delete when runtime use is unproven; use `blocked` or `deferred`.
 4. Record verification commands and results in `cleanup_notes` or iteration fields.
 5. Each completed iteration gets branch `garbage-collection-<slug>` and its own PR; never commit GC work to `main`.
+6. Reopened discovery preserves existing iterations and PR metadata; do not reset history unless the user explicitly asks for reset.

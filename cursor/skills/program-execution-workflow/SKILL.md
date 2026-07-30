@@ -1,6 +1,6 @@
 ---
 name: program-execution-workflow
-description: Pure handoff router for DrowAI programs from `.cursor/agents/program-workflow-state.md`. Discovers all numbered phase files under doc_root and runs the full create→review→implement→final-review cycle for every remaining item in one session until program_complete or hard_stop. Does not stop after one phase. Does not create, review, or implement itself.
+description: Pure handoff router for repository-local programs from `.cursor/state/program-workflow-state.md`. Discovers all numbered phase files under doc_root and runs the full create→guide-review→implement→final-implementation-review→quality-review cycle for every remaining item in one session until program_complete or hard_stop. Does not stop after one phase. Does not create, review, or implement itself.
 ---
 
 # Program Execution Workflow
@@ -35,6 +35,8 @@ ONLY THEN return final response
 |-------|---------|
 | `doc_root` | Directory with numbered phase docs |
 | `file_glob` | Discovery pattern (default `phase-*.md`) |
+| `guide_output_root` | Creator destination (for example `docs/refactors/<program>/` or `docs/plans/<program>/`) |
+| `refactor_policy` | Optional repository refactor policy or runbook |
 | `last_completed_index` | Last fully finished item (0-based). `-1` = none done |
 | `guide_mode` | `refactor` or `feature` creator |
 | `pipeline_stage` | Resume point |
@@ -57,7 +59,8 @@ Persist `current_index` and `current_input_doc` in `program-workflow-state` when
 | `creating_guide` | guide creator | `reviewing_guide` |
 | `reviewing_guide` | `implementation-guide-review-loop` | `implementing` |
 | `implementing` | `feature-implementation-workflow` | `reviewing_implementation` |
-| `reviewing_implementation` | `implementation-review-loop` (final) | `advance_queue` |
+| `reviewing_implementation` | `implementation-review-loop` (final) | `reviewing_quality` |
+| `reviewing_quality` | `implementation-quality-review-loop` (final) | `advance_queue` |
 | `advance_queue` | *(router only)* | `creating_guide` or `program_complete` |
 
 Handoffs: [state-handoffs.md](state-handoffs.md).

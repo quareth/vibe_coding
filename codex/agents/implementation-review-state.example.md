@@ -1,8 +1,8 @@
 # implementation-review-state.example.md
 
-Template for `.cursor/agents/implementation-review-state.md`. This file is a current-cycle blocker ledger, not long-term review memory.
+Template for `.codex/agents/implementation-review-state.md`. This file is a current-cycle blocker ledger, not long-term review memory.
 
-Copy the clean YAML block into `.cursor/agents/implementation-review-state.md` when starting a review loop. Keep `.cursor/agents/implementation-state.md` as the source of truth for guide, phase, task, intent, and ownership checklist.
+Copy the clean YAML block into `.codex/agents/implementation-review-state.md` when starting a review loop. Keep `.codex/agents/implementation-state.md` as the source of truth for guide, phase, task, intent, and ownership checklist.
 
 ## Clean State
 
@@ -14,11 +14,11 @@ mode: "current_task" # current_task | current_phase | final_implementation
 status: READY_FOR_REVIEW
 round: 0
 max_rounds: 20 # fixed hard cap only; round is audit history, not a reviewer-chosen limit
-implementation_state: ".cursor/agents/implementation-state.md"
-guide: "docs/path/to/implementation-guide.md"
-related_design: "docs/path/to/design.md"
+implementation_state: ".codex/agents/implementation-state.md"
+guide: "docs/path/to/implementation-guide.md" # copy from implementation-state
+related_design: "docs/path/to/design.md" # copy from implementation-state; use "" when none
 phase: "0" # required for current_task/current_phase; use "" for final_implementation
-task: "0.1" # required only for current_task; use "" for current_phase/final_implementation
+task: "0.1" # full guide identifier; required only for current_task
 scope_summary: "Current task, current phase, or full implementation review against the guide."
 intent_summary: "Short implementation intent from implementation-state.md."
 last_actor: "feature-implementer"
@@ -52,7 +52,7 @@ active_findings:
     priority: "P1"
     severity: "blocker"
     category: "security_boundary"
-    title: "The Phase 2 test spec can accidentally authorize cross-user task access."
+    title: "The Phase 2 test spec can accidentally authorize cross-account resource access."
     status: "open"
     location:
       document: "docs/path/to/implementation-guide.md"
@@ -62,9 +62,8 @@ active_findings:
     evidence:
       guide:
         - "Guide line 585 preserves Task.user_id == current_user.id checks."
-        - "Guide line 633 says same-tenant task is accepted."
       code:
-        - "backend/services/task/access_service.py:15 enforces user-owned task access."
+        - "src/services/resource_access.py:15 enforces owner-scoped access."
       design:
         - "HLD line 62 requires user authorization before runtime access."
       tests:

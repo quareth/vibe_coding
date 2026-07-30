@@ -1,0 +1,42 @@
+schema_version: 1
+name: medium
+extends: lite
+description: Guide-first delivery with optional design preparation, guide review, phase gates, final review, and quality review.
+
+planning:
+  required_artifact: implementation_guide
+  accepted_reference_documents: any
+  clarification: recommended_when_scope_is_unclear
+  architecture: recommended_for_cross_boundary_changes
+  guide_review: true
+
+execution:
+  review_strategy: phase_gated
+  final_review: true
+  quality_review: true
+
+agents:
+  - architect
+  - clarifier
+  - feature-implementer
+  - implementation-fixer
+  - implementation-flow
+  - implementation-guide-creator
+  - implementation-guide-fixer
+  - implementation-guide-reviewer
+  - implementation-quality-fixer
+  - implementation-quality-reviewer
+  - implementation-reviewer
+
+skills:
+  - feature-implementation-workflow
+  - implementation-guide-review-loop
+  - implementation-quality-review-loop
+  - implementation-review-loop
+
+state_examples:
+  - implementation-guide-review-state.example.md
+  - implementation-guide-state.example.md
+  - implementation-quality-review-state.example.md
+  - implementation-review-state.example.md
+  - implementation-state.example.md

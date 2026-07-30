@@ -1,0 +1,63 @@
+schema_version: 1
+name: high
+extends: medium
+description: Complete guide-first collection with every public agent and skill available.
+
+planning:
+  required_artifact: implementation_guide
+  accepted_reference_documents: any
+  clarification: recommended
+  architecture: recommended
+  guide_review: true
+
+execution:
+  review_strategy: phase_gated
+  final_review: true
+  quality_review: true
+
+agents:
+  - architect
+  - architecture-component-discoverer
+  - architecture-component-inventory-reviewer
+  - architecture-doc-drift-auditor
+  - architecture-doc-fixer
+  - architecture-doc-reviewer
+  - architecture-doc-writer
+  - clarifier
+  - feature-implementer
+  - garbage-collector
+  - implementation-fixer
+  - implementation-flow
+  - implementation-guide-creator
+  - implementation-guide-fixer
+  - implementation-guide-reviewer
+  - implementation-quality-fixer
+  - implementation-quality-reviewer
+  - implementation-reviewer
+  - phasing
+  - refactor-guide-creator
+  - workflow
+
+skills:
+  - architecture-documentation-workflow
+  - architecture-drift-audit-workflow
+  - feature-implementation-workflow
+  - garbage-collection-workflow
+  - implementation-guide-review-loop
+  - implementation-quality-review-loop
+  - implementation-review-loop
+  - playwright
+  - program-execution-workflow
+
+state_examples:
+  - architecture-doc-review-state.example.md
+  - architecture-documentation-state.example.md
+  - architecture-inventory-review-state.example.md
+  - cleanup-state.example.md
+  - implementation-guide-review-state.example.md
+  - implementation-guide-state.example.md
+  - implementation-quality-review-state.example.md
+  - implementation-review-state.example.md
+  - implementation-state.example.md
+  - program-workflow-state.example.md
+  - refactor-guide-state.example.md

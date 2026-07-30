@@ -1,15 +1,15 @@
 ---
 name: implementation-review-loop
-description: Runs the state-driven implementation review loop for DrowAI. Use when the user asks to review current implementation work, review a phase/task, run final implementation review, run review-and-fix until no blockers, or mentions implementation-review-state, blocker ledger, reviewer/fixer loop, or fresh full review.
+description: Run a repository-local state-driven implementation review loop through `.cursor/state/implementation-review-state.md`. Use when the user asks to review current implementation work, review a phase or task, run final implementation review, run review-and-fix until no blockers, or mentions implementation-review-state, blocker ledger, reviewer/fixer loop, or fresh full review.
 ---
 
 # Implementation Review Loop
 
-Use this skill to run DrowAI's automated implementation review loop through state files and fresh subagents.
+Use this skill to run an automated implementation review loop through state files and fresh Codex subagents.
 
 The durable files are:
-- `.cursor/agents/implementation-state.md` — guide, intent, ownership checklist, and optional current phase/task for feature-implementer workflow.
-- `.cursor/agents/implementation-review-state.md` — current-cycle blocker ledger and neutral scope metadata.
+- `.cursor/state/implementation-state.md` - guide, intent, ownership checklist, and optional current phase/task for feature-implementer workflow.
+- `.cursor/state/implementation-review-state.md` - current-cycle blocker ledger and neutral scope metadata.
 
 `max_rounds` is always the fixed hard cap `20`. Normalize it back to `20` if a state file has another value. `round` is only a record of fresh review passes; it must not be used to stop early before the hard cap.
 
@@ -22,9 +22,9 @@ new chat -> guide + review prompt -> blocker report -> fix -> new chat -> guide 
 ```
 
 To preserve that behavior:
-- Spawn a fresh `@implementation-reviewer` subagent for every review pass. Do not resume or reuse a previous reviewer agent.
+- Spawn a fresh `implementation-reviewer` subagent for every review pass. Do not resume or reuse a previous reviewer agent.
 - Do not pass prior reviewer reports, fixer summaries, active findings, archived findings, or chat history to the reviewer.
-- Before calling the next reviewer after a fix, ensure `.cursor/agents/implementation-review-state.md` has no previous findings, no fix attempts, and no review history.
+- Before calling the next reviewer after a fix, ensure `.cursor/state/implementation-review-state.md` has no previous findings, no fix attempts, and no review history.
 - The next reviewer may read only neutral scope metadata: mode, guide, related design, optional phase/task, scope summary, intent summary, round counter, hard cap, and empty `active_findings`.
 - The fixer may read `active_findings` while fixing, but must clear them before the next reviewer run.
 
@@ -36,11 +36,12 @@ Use when feature implementation is in progress or has just completed one phase/t
 
 Trigger examples:
 - "review current task"
+- "review this implementation phase"
 - "run task review loop"
 - Command: `review-current-task`
 
 Scope:
-- Review only the current `guide`, `phase`, and `task` from `.cursor/agents/implementation-state.md`.
+- Review only the current `guide`, `phase`, and `task` from `.cursor/state/implementation-state.md`.
 - If a guide defines phase-level acceptance, include that phase only.
 - Continue reviewer -> fixer -> fresh reviewer until `COMPLETE`, `MAX_ROUNDS_REACHED`, or `NEEDS_CLARIFICATION`.
 
@@ -55,7 +56,7 @@ Trigger examples:
 - Command: `review-current-phase`
 
 Scope:
-- Review all tasks and phase acceptance criteria for the current `phase` from `.cursor/agents/implementation-state.md`.
+- Review all tasks and phase acceptance criteria for the current `phase` from `.cursor/state/implementation-state.md`.
 - Initialize review-state with `mode: current_phase`, keep `phase`, set `task: ""`, and a phase-scope summary.
 - Continue reviewer -> fixer -> fresh reviewer until `COMPLETE`, `MAX_ROUNDS_REACHED`, or `NEEDS_CLARIFICATION`.
 
@@ -70,19 +71,20 @@ Trigger examples:
 - Command: `review-final-implementation`
 
 Scope:
-- Review the full guide referenced by `.cursor/agents/implementation-state.md`, unless the user names a different guide or scope.
-- Ignore `phase` and `task` in `.cursor/agents/implementation-state.md`; those are only for feature-implementer/current-task review.
+- Review the full guide referenced by `.cursor/state/implementation-state.md`, unless the user names a different guide or scope.
+- Ignore `phase` and `task` in `.cursor/state/implementation-state.md`; those are only for feature-implementer/current-task review.
+- In the profile workflow, implementation-state must be `AWAITING_FINAL_REVIEW`. A terminal `COMPLETE` state is also valid for an explicitly requested standalone rerun.
 - Initialize review-state with `mode: final_implementation`, `phase: ""`, `task: ""`, and `scope_summary: "Full implementation review against the guide."`
 - Do not call `feature-implementer`.
 - Continue reviewer -> fixer -> fresh reviewer until no blockers remain or the hard cap of 20 rounds is reached.
 
 ## Required Behavior
 
-1. Read `.cursor/agents/implementation-state.md`.
-2. Initialize or reset `.cursor/agents/implementation-review-state.md` for the selected mode with clean `active_findings: []`.
-3. Call a fresh `@implementation-reviewer` subagent.
-4. If review-state becomes `REVIEW_BLOCKED`, call `@implementation-fixer`.
-5. After fixer applies fixes, it must reset review-state to `READY_FOR_REVIEW` with clean `active_findings: []`; then call a fresh `@implementation-reviewer` subagent with no pasted context.
+1. Read `.cursor/state/implementation-state.md`.
+2. Initialize or reset `.cursor/state/implementation-review-state.md` for the selected mode with clean `active_findings: []`.
+3. Call a fresh `implementation-reviewer` subagent.
+4. If review-state becomes `REVIEW_BLOCKED`, call `implementation-fixer`.
+5. After fixer applies fixes, it must reset review-state to `READY_FOR_REVIEW` with clean `active_findings: []`; then call a fresh `implementation-reviewer` subagent with no pasted context.
 6. Stop only on `COMPLETE`, `MAX_ROUNDS_REACHED`, or `NEEDS_CLARIFICATION`; do not stop because a reviewer chose a lower round count.
 
 ## Fresh Review Rule
@@ -116,7 +118,7 @@ active_findings:
         - "Guide line 585 preserves Task.user_id == current_user.id checks."
         - "Guide line 633 says same-tenant task is accepted."
       code:
-        - "backend/services/task/access_service.py:15 enforces user-owned task access."
+        - "src/services/resource_access.py:15 enforces owner-scoped access."
       design:
         - "HLD line 62 requires user authorization before runtime access."
     why_it_blocks: "It changes the security boundary and would produce tests that bless cross-user access."
@@ -126,10 +128,10 @@ active_findings:
 
 ## State Status Routing
 
-- `READY_FOR_REVIEW` -> call `@implementation-reviewer`
-- `REVIEW_BLOCKED` -> call `@implementation-fixer`
+- `READY_FOR_REVIEW` -> call `implementation-reviewer`
+- `REVIEW_BLOCKED` -> call `implementation-fixer`
 - `FIX_APPLIED` -> invalid steady state; fixer should reset state to `READY_FOR_REVIEW` before handoff
-- `COMPLETE` -> stop; in feature implementation workflow, main agent may continue with `@feature-implementer next`
+- `COMPLETE` -> stop this loop; current-phase mode may continue with `feature-implementer next`, while final mode returns to the profile workflow for quality review or terminal completion
 - `NEEDS_CLARIFICATION` -> stop and ask for the missing input recorded in review-state
 - `MAX_ROUNDS_REACHED` -> stop and ask for human decision; this is valid only at the fixed hard cap of 20 rounds
 

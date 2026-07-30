@@ -1,0 +1,30 @@
+schema_version: 1
+name: lite
+extends: null
+description: Minimal guide-driven implementation with one final completeness review.
+
+planning:
+  required_artifact: implementation_guide
+  accepted_reference_documents: any
+  clarification: as_needed
+  architecture: as_needed
+  guide_review: false
+
+execution:
+  review_strategy: final_only
+  final_review: true
+  quality_review: false
+
+agents:
+  - implementation-guide-creator
+  - feature-implementer
+  - implementation-reviewer
+  - implementation-fixer
+
+skills:
+  - feature-implementation-workflow
+  - implementation-review-loop
+
+state_examples:
+  - implementation-state.example.md
+  - implementation-review-state.example.md

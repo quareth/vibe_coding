@@ -1,64 +1,102 @@
 ---
 name: feature-implementation-workflow
-description: Runs DrowAI's state-driven feature implementation workflow from `.cursor/agents/implementation-state.md`. Use when the user says implement, implement-this, continue implementation, run the implementation guide, advance to next task, or wants the existing feature-implementer plus review-loop workflow to continue automatically until completion or a hard stop.
+description: Run a profile-aware, repository-local implementation workflow from one required implementation guide. Supports Lite final-only review and Medium/High phase-gated plus quality review through durable state.
 ---
 
 # Feature Implementation Workflow
 
-Use this skill to run the current DrowAI implementation automation flow.
+Run implementation from one implementation guide through repository-local
+state and fresh specialist agents. The guide is the only required planning
+artifact. It may be supplied directly or created from any useful reference
+material.
 
-This skill preserves the existing working behavior:
-- `@feature-implementer` implements exactly one guide task.
-- `implementation-review-loop` performs phase-gated review/fix through the state ledger.
-- The main agent advances tasks continuously within a phase, then gates phase transition on review-state `COMPLETE`.
-- The loop continues until the guide is complete, `MAX_ROUNDS_REACHED`, `NEEDS_CLARIFICATION`, or the user stops.
+## Profiles
+
+| Profile | Phase review | Final implementation review | Quality review |
+| --- | --- | --- | --- |
+| Lite | No | Required | No |
+| Medium | Required | Required | Required |
+| High | Required | Required | Required |
+
+High installs additional optional capabilities. Do not invoke those
+capabilities unless the user requests them or their own trigger applies.
+
+For new work, default to Lite unless the user selects Medium or High. Preserve
+legacy schema-2 phase-gated behavior by normalizing missing profile fields to
+`profile: medium`, `review_strategy: phase_gated`, and
+`quality_review: true`.
 
 ## Durable Files
 
-- `.cursor/agents/implementation-state.md` — current guide, phase, task, intent, `advance_after_complete`, and ownership checklist.
-- `.cursor/agents/implementation-review-state.md` — current task blocker ledger and review-loop status.
-- `.cursor/agents/IMPLEMENTATION_FLOW.md` — detailed orchestration reference.
+- `.codex/agents/implementation-state.md` — profile, guide, exact current and
+  next task, review strategy, quality gate, and lifecycle status.
+- `.codex/agents/implementation-review-state.md` — current functional
+  reviewer/fixer cycle.
+- `.codex/agents/implementation-quality-review-state.md` — Medium/High frozen
+  branch-or-commit quality scope.
+- `.codex/agents/implementation-guide-state.md` and
+  `.codex/agents/implementation-guide-review-state.md` — Medium/High
+  guide-review scope and blocker ledger.
+- `.codex/agents/implementation-flow.toml` — detailed routing reference.
 
-## Trigger Examples
+## Guide Preflight
 
-- "implement this"
-- "continue implementation"
-- "run implementation workflow"
-- "go next"
-- "implement from state"
-- Command: `implement-this`
+1. If the user supplied an implementation guide, use it.
+2. Otherwise call `implementation-guide-creator` with the request and any
+   available reference material. References may be requirements, architecture,
+   ADRs, tickets, repository documentation, or conversation context.
+3. The workflow cannot begin until an actionable implementation guide exists.
+   No other planning-document type is mandatory.
+4. Medium and High run the implementation-guide review/fix loop before
+   implementation. Clarification and architecture remain conditional on
+   ambiguity and technical scope; their outputs do not become additional
+   required execution inputs.
+5. Do not start Medium/High implementation until guide-review state is
+   `COMPLETE`.
 
 ## Workflow
 
-1. Read `.cursor/agents/implementation-state.md`.
-2. If the user named a guide/phase/task, pass that to `@feature-implementer`; otherwise call `@feature-implementer` with the current state.
-3. Let `@feature-implementer` implement one task and run verification.
-4. Determine whether the next task remains in the same phase:
-   - If yes, call `@feature-implementer` with `next` and continue implementation without review.
-   - If no (phase boundary reached), initialize `.cursor/agents/implementation-review-state.md` with `mode: current_phase`, current `phase`, `task: ""`, and `status: READY_FOR_REVIEW`.
-5. At phase boundary, invoke `implementation-review-loop` in Current Phase Review mode.
-6. Route by review-state:
-   - `COMPLETE`: call `@feature-implementer` with `next` to start the next phase (if any), else stop.
-   - `REVIEW_BLOCKED`: continue the phase review-loop; do not manually paste reports.
-   - `READY_FOR_REVIEW`: call a fresh reviewer through the review-loop skill.
-   - `NEEDS_CLARIFICATION`: stop and ask for missing input from review-state.
-   - `MAX_ROUNDS_REACHED`: stop and ask for a human decision using review-state.
-7. Repeat until the guide has no next task or a hard stop status is reached.
+1. Read or initialize implementation-state from its schema-3 example.
+2. Call `feature-implementer` for exactly one guide task.
+3. Route implementation-state:
+   - `TASK_COMPLETE`: call `feature-implementer` with `next`.
+   - `AWAITING_PHASE_REVIEW`: invoke `implementation-review-loop` in
+     `current_phase` mode. This status is valid only for `phase_gated`.
+   - `AWAITING_FINAL_REVIEW`: invoke `implementation-review-loop` in
+     `final_implementation` mode with empty phase and task.
+   - `AWAITING_QUALITY_REVIEW`: invoke
+     `implementation-quality-review-loop` with one exact branch or commit
+     scope.
+   - `NEEDS_CLARIFICATION`: stop for the decision in `status_reason`.
+   - `COMPLETE`: stop successfully.
+4. After a current-phase review reaches `COMPLETE`, call
+   `feature-implementer next` from persisted `next_task`.
+5. After final review reaches `COMPLETE`:
+   - Lite: set implementation-state `status: COMPLETE` and
+     `advance_after_complete: false`.
+   - Medium/High: set `status: AWAITING_QUALITY_REVIEW`, initialize quality
+     state, and run the quality loop.
+6. For the quality gate, use an explicit branch/commit target or safely resolve
+   the current feature branch and repository default base. If the exact frozen
+   scope cannot be established, stop for that scope decision rather than
+   guessing.
+7. When quality state reaches `COMPLETE`, set implementation-state
+   `status: COMPLETE` and `advance_after_complete: false`.
 
 ## Hard Rules
 
-- Do not ask the user whether to call the next agent when state has a clear next transition.
-- Do not paste full reports between agents; state files are authoritative.
-- Do not skip the review-loop completion gate.
-- Do not call `@feature-implementer next` after `MAX_ROUNDS_REACHED` or `NEEDS_CLARIFICATION`.
-- Keep implementation task-scoped; one feature-implementer invocation equals one guide task.
-- Phase transitions must be gated by Current Phase Review `COMPLETE`.
-- If state files conflict, resolve or ask before continuing.
+- Never skip final implementation review.
+- Never run phase review in Lite.
+- Never cross a Medium/High phase boundary until current-phase review is
+  `COMPLETE`.
+- Never advance the implementer from `AWAITING_FINAL_REVIEW` or
+  `AWAITING_QUALITY_REVIEW`.
+- Keep one implementer invocation scoped to one guide task.
+- Keep reviewer -> fixer -> fresh reviewer isolation.
+- Use persisted state instead of pasted reports or chat-only transition data.
+- Do not automatically run optional High-profile maintenance or audit skills.
 
 ## Final Response
 
-When the workflow stops, report:
-- final status from `.cursor/agents/implementation-review-state.md`,
-- current `guide`, `phase`, and `task`,
-- verification summary if available,
-- whether the guide completed or why the loop stopped.
+Report the selected profile, guide, final lifecycle status, completed gates,
+verification summary, and any exact hard-stop reason.
